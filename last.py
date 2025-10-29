@@ -30,47 +30,43 @@ def get_latest_data_grouped_by_source(id_project):
 
 
 projects = list(db.projects.find({"status": {"$nin": [0, 4]}}).sort("tier", 1))
-project_summary_obj = {}
+source_summary = {}
 
 print("-" * 100)
-
 for project in projects:
-    project_obj = {"exist": False, "sources": []}
-
     latest_data = get_latest_data_grouped_by_source(project["_id"])
 
     if latest_data:
         for data in latest_data:
             if isinstance(data["last_date"], datetime):
                 if data["last_date"] < now_datetime:
-                    project_obj["exist"] = True
+                    source = data["_id"]
 
-                    project_obj["sources"].append(
-                        f"{data['last_date']} -- {data['_id']}"
-                    )
+                    if source not in source_summary:
+                        source_summary[source] = []
 
-                    if data["_id"] not in project_summary_obj:
-                        project_summary_obj[data["_id"]] = 0
-                        continue
-
-                    project_summary_obj[data["_id"]] += 1
+                    source_summary[source].append({
+                        "tier": project["tier"],
+                        "name": project["name"],
+                        "id": project["_id"],
+                        "last_date": data["last_date"]
+                    })
             else:
-                print(f"Invalid date format for {data['_id']}")
-
-    if project_obj["exist"]:
-        print(f"Project: [{project['tier']}] {project['name']} ({project['_id']})")
-
-        for source in project_obj["sources"]:
-            print(source)
-
-        print("-" * 100)
-
-if project_summary_obj:
-    project_summary_array = [{"source": source_id, "count": count} for source_id, count in project_summary_obj.items()]
-    sorted_project_summary_array = sorted(project_summary_array, key=lambda x: x['count'], reverse=True)
-
-    for spsa in sorted_project_summary_array:
-        print(f"Source {spsa['source']}: {spsa['count']} projects")
+                print(f"Invalid format data {data['_id']}")
 
 
-    print("-" * 100)
+def tier_sort_key(tier_value):
+    if isinstance(tier_value, str):
+        return ord(tier_value.upper()[0])
+    return 999
+
+for source, projects_data in source_summary.items():
+    print(source)
+    for proj in sorted(
+        projects_data,
+        key=lambda x: (tier_sort_key(x["tier"]), x["last_date"])
+    ):
+        print(f"- [{proj['tier']}] {proj['name']} ({proj['id']}) - {proj['last_date']}")
+    print()
+
+print("-" * 100)
