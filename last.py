@@ -12,7 +12,7 @@ client = mongo.MongoClient(
 db = client["medmon"]
 
 now = date.today()
-skip_date = 1,
+skip_date = 1
 now_datetime = datetime.combine(now, datetime.min.time())
 skip_datetime = now_datetime - timedelta(days=skip_date-1)  
 first_of_month = date(now.year, now.month, 1)
@@ -42,6 +42,7 @@ def get_latest_data_grouped_by_source(id_project):
 
 projects = list(db.projects.find({"status": {"$nin": [0, 4]}}).sort("tier", 1))
 source_summary = {}
+source_counts = {}
 
 print("-" * 100)
 for project in projects:
@@ -52,7 +53,7 @@ for project in projects:
     if latest_data:
         for data in latest_data:
             if isinstance(data["last_date"], datetime):
-                if data["last_date"] < now_datetime:
+                if data["last_date"] < skip_datetime:
                     source = data["_id"]
 
                     expected_display_type = SOURCE_TYPES.get(source)
@@ -83,6 +84,8 @@ for project in projects:
                         "id": project["_id"],
                         "last_date": data["last_date"]
                     })
+
+                    source_counts[source] = source_counts.get(source, 0) + 1
             else:
                 print(f"Invalid format data {data['_id']}")
 
@@ -92,12 +95,12 @@ def tier_sort_key(tier_value):
         return ord(tier_value.upper()[0])
     return 999
 
-exclude_sources = ["forum", "blog"]
+exclude_sources = ["forum", "blog", "review"]
 
 for source, projects_data in source_summary.items():
-    print(source)
     if source in exclude_sources:
         continue
+    print(source)
     for proj in sorted(
         projects_data,
         key=lambda x: (x["last_date"])
@@ -105,4 +108,9 @@ for source, projects_data in source_summary.items():
         print(f"- [{proj['tier']}] {proj['name']} ({proj['id']}) - {proj['last_date']}")
     print()
 
+print("=== TOTAL PER SOURCE ===")
+for source, total in source_counts.items():
+    if source in exclude_sources:
+        continue
+    print(f"{source} ({total})")
 print("-" * 100)
