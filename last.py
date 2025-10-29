@@ -1,6 +1,8 @@
 import os
-from datetime import date, datetime
+import logging
+from datetime import date, datetime, timedelta
 import pymongo as mongo
+from helper.source_types import SOURCE_TYPES
 
 os.system("cls" if os.name == "nt" else "clear")
 
@@ -10,10 +12,19 @@ client = mongo.MongoClient(
 db = client["medmon"]
 
 now = date.today()
+skip_date = 1,
 now_datetime = datetime.combine(now, datetime.min.time())
+skip_datetime = now_datetime - timedelta(days=skip_date-1)  
 first_of_month = date(now.year, now.month, 1)
 first_of_month_datetime = datetime.combine(first_of_month, datetime.min.time())
 
+log_filename = "mismatch_log.txt"
+logging.basicConfig(
+    filename=log_filename,
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    filemode="a"
+)
 
 def get_latest_data_grouped_by_source(id_project):
     pipeline = [
@@ -34,7 +45,9 @@ source_summary = {}
 
 print("-" * 100)
 for project in projects:
-    latest_data = get_latest_data_grouped_by_source(project["_id"])
+    project_id = project["_id"]
+    display_type = project.get("display_tipe")
+    latest_data = get_latest_data_grouped_by_source(project_id)
 
     if latest_data:
         for data in latest_data:
@@ -42,6 +55,25 @@ for project in projects:
                 if data["last_date"] < now_datetime:
                     source = data["_id"]
 
+                    expected_display_type = SOURCE_TYPES.get(source)
+
+                    mismatch = False
+                    if expected_display_type is not None:
+                        if display_type == 3:
+                            mismatch = False
+                        elif expected_display_type != display_type:
+                            mismatch = True
+            
+                    if mismatch:
+                        log_msg = (
+                            f"⚠️ MISMATCH: Project '{project['name']}' "
+                            f"({project_id}) display_type={display_type}, "
+                            f"tapi source='{source}' bertipe {expected_display_type} | "
+                            f"Last date: {data['last_date']}"
+                        )
+                        logging.warning(log_msg)
+                        continue
+                    
                     if source not in source_summary:
                         source_summary[source] = []
 
@@ -60,11 +92,15 @@ def tier_sort_key(tier_value):
         return ord(tier_value.upper()[0])
     return 999
 
+exclude_sources = ["forum", "blog"]
+
 for source, projects_data in source_summary.items():
     print(source)
+    if source in exclude_sources:
+        continue
     for proj in sorted(
         projects_data,
-        key=lambda x: (tier_sort_key(x["tier"]), x["last_date"])
+        key=lambda x: (x["last_date"])
     ):
         print(f"- [{proj['tier']}] {proj['name']} ({proj['id']}) - {proj['last_date']}")
     print()
