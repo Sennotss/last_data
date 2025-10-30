@@ -1,8 +1,10 @@
 import os
+import re
 import logging
 from datetime import date, datetime, timedelta
 import pymongo as mongo
 from helper.source_types import SOURCE_TYPES
+from helper.project_priority import PROJECT_PRIORITY_LIST, get_project_priority
 
 os.system("cls" if os.name == "nt" else "clear")
 
@@ -82,7 +84,8 @@ for project in projects:
                         "tier": project["tier"],
                         "name": project["name"],
                         "id": project["_id"],
-                        "last_date": data["last_date"]
+                        "last_date": data["last_date"],
+                        "priority": get_project_priority(project["name"])
                     })
 
                     source_counts[source] = source_counts.get(source, 0) + 1
@@ -108,7 +111,32 @@ for source, projects_data in source_summary.items():
         print(f"- [{proj['tier']}] {proj['name']} ({proj['id']}) - {proj['last_date']}")
     print()
 
-print("=== TOTAL PER SOURCE ===")
+def normalize_name(name: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", name.lower())
+
+print("=== PRIORITAS PROJECT ===")
+project_delay_map = {}
+for source, projects_data in source_summary.items():
+    if source in exclude_sources:
+        continue
+    for proj in projects_data:
+        norm_name = normalize_name(proj["name"])
+        if norm_name not in project_delay_map:
+            project_delay_map[norm_name] = []
+        project_delay_map[norm_name].append({
+            "source": source,
+            "last_date": proj["last_date"]
+        })
+
+for pname in PROJECT_PRIORITY_LIST:
+    nkey = normalize_name(pname)
+    if nkey in project_delay_map:
+        print(f"\n {pname}")
+        for s in sorted(project_delay_map[nkey], key=lambda x: x["last_date"]):
+            print(f" - {s['source']} - {s['last_date'].strftime('%Y-%m-%d %H:%M:%S')}")
+print()
+
+print("=== TOTAL PER SOURCE ===")   
 for source, total in source_counts.items():
     if source in exclude_sources:
         continue
