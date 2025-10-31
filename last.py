@@ -2,21 +2,25 @@ import os
 import re
 import logging
 from datetime import date, datetime, timedelta
+from dotenv import load_dotenv
 import pymongo as mongo
 from helper.source_types import SOURCE_TYPES
 from helper.project_priority import PROJECT_PRIORITY_LIST, get_project_priority
 
 os.system("cls" if os.name == "nt" else "clear")
 
-client = mongo.MongoClient(
-    "mongodb://medmon_kabayan:kabayan123***@localhost:7018/medmon?authSource=medmon"
-)
-db = client["medmon"]
+load_dotenv()
+
+MONGO_URI = os.getenv("MONGO_URI")
+MONGO_DBNAME = os.getenv("MONGO_DBNAME")
+
+client = mongo.MongoClient(MONGO_URI)
+db = client[MONGO_DBNAME]
 
 now = date.today()
 skip_date = 1
 now_datetime = datetime.combine(now, datetime.min.time())
-skip_datetime = now_datetime - timedelta(days=skip_date-1)  
+skip_datetime =now_datetime - timedelta(days=skip_date-1)  
 first_of_month = date(now.year, now.month, 1)
 first_of_month_datetime = datetime.combine(first_of_month, datetime.min.time())
 
