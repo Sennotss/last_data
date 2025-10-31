@@ -92,14 +92,13 @@ for project in projects:
             else:
                 print(f"Invalid format data {data['_id']}")
 
-
 def tier_sort_key(tier_value):
     if isinstance(tier_value, str):
         return ord(tier_value.upper()[0])
     return 999
 
 exclude_sources = ["forum", "blog", "review"]
-
+    
 for source, projects_data in source_summary.items():
     if source in exclude_sources:
         continue
