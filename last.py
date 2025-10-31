@@ -40,7 +40,7 @@ def get_latest_data_grouped_by_source(id_project):
                 "date": {"$gte": first_of_month_datetime},
             }
         },
-        {"$group": {"_id": "$source", "last_date": {"$max": "$date"}}},
+        {"$group": {"_id": "$source", "last_date": {"$first": "$date"}, "id_origin": {"$first": "$id_origin"}}},
         {"$sort": {"last_date": 1}},  # Sorting by 'last_date' ascending
     ]
     return list(db.streams.aggregate(pipeline))
@@ -89,6 +89,7 @@ for project in projects:
                         "name": project["name"],
                         "id": project["_id"],
                         "last_date": data["last_date"],
+                        "id_origin": data.get("id_origin"),
                         "priority": get_project_priority(project["name"])
                     })
 
@@ -111,7 +112,7 @@ for source, projects_data in source_summary.items():
         projects_data,
         key=lambda x: (x["last_date"])
     ):
-        print(f"- [{proj['tier']}] {proj['name']} ({proj['id']}) - {proj['last_date']}")
+        print(f"- [{proj['tier']}] {proj['name']} ({proj['id']}) - {proj['last_date']} - {proj.get('id_origin', '-')}")
     print()
 
 def normalize_name(name: str) -> str:
