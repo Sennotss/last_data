@@ -8,7 +8,11 @@ PROJECT_PRIORITY_LIST = [
     "Mandiri API",
     "Pemprov Sumut",
     "Gubernur Indonesia (Sumut)",
-    "Teladan Prima Agro"
+    "Teladan Prima Agro",
+    "DISPAMSANAU",
+    "Kejaksaan Agung RI",
+    "Kemenparekraf",
+    "DPRD DKI Jakarta"
 ]
 
 PROJECT_PRIORITY_MAP = {name: index + 1 for index, name in enumerate(PROJECT_PRIORITY_LIST)}
