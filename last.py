@@ -23,6 +23,12 @@ now_datetime = datetime.combine(now, datetime.min.time())
 skip_datetime =now_datetime - timedelta(days=skip_date-1)  
 first_of_month = date(now.year, now.month, 1)
 first_of_month_datetime = datetime.combine(first_of_month, datetime.min.time())
+if now.day == 1:
+    prev_month_last_day = first_of_month - timedelta(days=1)
+    first_of_month = date(prev_month_last_day.year, prev_month_last_day.month, 1)
+    print(f"[DEBUG] Hari ini tanggal 1 → ambil data dari bulan sebelumnya: {first_of_month.strftime('%Y-%m-%d')}")
+
+first_of_month_datetime = datetime.combine(first_of_month, datetime.min.time())
 
 log_filename = "mismatch_log.txt"
 logging.basicConfig(
@@ -49,6 +55,7 @@ def get_latest_data_grouped_by_source(id_project):
 projects = list(db.projects.find({"status": {"$nin": [0, 4]}}).sort("tier", 1))
 source_summary = {}
 source_counts = {}
+priority_counts = {}
 
 print("-" * 100)
 for project in projects:
@@ -140,9 +147,18 @@ for pname in PROJECT_PRIORITY_LIST:
             print(f" - {s['source']} - {s['last_date'].strftime('%Y-%m-%d %H:%M:%S')}")
 print()
 
+for source, projects_data in source_summary.items():
+    if source in exclude_sources:
+        continue
+    for proj in projects_data:
+        if proj["name"] in PROJECT_PRIORITY_LIST:
+            priority_counts[source] = priority_counts.get(source, 0) + 1
+
+
 print("=== TOTAL PER SOURCE ===")   
 for source, total in source_counts.items():
     if source in exclude_sources:
         continue
-    print(f"{source} ({total})")
+    priority_total = priority_counts.get(source, 0)
+    print(f"{source} ({total} total, {priority_total} prioritas)")
 print("-" * 100)

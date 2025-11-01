@@ -11,7 +11,7 @@ PROJECT_PRIORITY_LIST = [
     "Teladan Prima Agro",
     "DISPAMSANAU",
     "Kejaksaan Agung RI",
-    "Kemenparekraf",
+    "kemenparekraf",
     "DPRD DKI Jakarta"
 ]
 
