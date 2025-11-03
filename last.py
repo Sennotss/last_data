@@ -1,13 +1,13 @@
 import os
 import re
 import logging
+import argparse
 from datetime import date, datetime, timedelta
 from dotenv import load_dotenv
 import pymongo as mongo
 from helper.source_types import SOURCE_TYPES
 from helper.project_priority import PROJECT_PRIORITY_LIST, get_project_priority
 
-os.system("cls" if os.name == "nt" else "clear")
 
 load_dotenv()
 
@@ -17,10 +17,8 @@ MONGO_DBNAME = os.getenv("MONGO_DBNAME")
 client = mongo.MongoClient(MONGO_URI)
 db = client[MONGO_DBNAME]
 
-now = date.today()
-skip_date = 1
-now_datetime = datetime.combine(now, datetime.min.time())
-skip_datetime =now_datetime - timedelta(days=skip_date-1)  
+now = datetime.now()
+today = now.date()
 first_of_month = date(now.year, now.month, 1)
 first_of_month_datetime = datetime.combine(first_of_month, datetime.min.time())
 if now.day == 1:
@@ -30,15 +28,8 @@ if now.day == 1:
 
 first_of_month_datetime = datetime.combine(first_of_month, datetime.min.time())
 
-log_filename = "mismatch_log.txt"
-logging.basicConfig(
-    filename=log_filename,
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    filemode="a"
-)
 
-def get_latest_data_grouped_by_source(id_project):
+def get_latest_data_grouped_by_source(id_project, start_date=None, end_date=None):
     pipeline = [
         {
             "$match": {
@@ -51,22 +42,47 @@ def get_latest_data_grouped_by_source(id_project):
     ]
     return list(db.streams.aggregate(pipeline))
 
+def normalize_name(name: str) -> str:
+        return re.sub(r"[^a-z0-9]", "", name.lower())
 
-projects = list(db.projects.find({"status": {"$nin": [0, 4]}}).sort("tier", 1))
-source_summary = {}
-source_counts = {}
-priority_counts = {}
+def start_script(start_date, end_date):
 
-print("-" * 100)
-for project in projects:
-    project_id = project["_id"]
-    display_type = project.get("display_tipe")
-    latest_data = get_latest_data_grouped_by_source(project_id)
-
-    if latest_data:
-        for data in latest_data:
-            if isinstance(data["last_date"], datetime):
-                if data["last_date"] < skip_datetime:
+    os.system("cls" if os.name == "nt" else "clear")
+    
+    log_filename = "mismatch_log.txt"
+    logging.basicConfig(
+        filename=log_filename,
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        filemode="a"
+    )
+    
+    now = datetime.now()
+    
+    projects = list(db.projects.find({"status": {"$nin": [0, 4]}}).sort("tier", 1))
+    source_summary = {}
+    source_counts = {}
+    priority_counts = {}
+    
+    print("-" * 100)
+    for project in projects:
+        project_id = project["_id"]
+        display_type = project.get("display_tipe")
+        latest_data = get_latest_data_grouped_by_source(project_id, start_date, end_date)
+    
+        if latest_data:
+            for data in latest_data:
+                last_date = data.get("last_date")
+                if isinstance(data["last_date"], datetime):
+                    if last_date > now:
+                        continue
+                    if start_date <= last_date <= end_date:
+                        continue
+                    if last_date.date() == today:
+                        if not (start_date.time() <= last_date.time() <= end_date.time()):
+                            pass 
+                        else:
+                            continue 
                     source = data["_id"]
 
                     expected_display_type = SOURCE_TYPES.get(source)
@@ -101,64 +117,81 @@ for project in projects:
                     })
 
                     source_counts[source] = source_counts.get(source, 0) + 1
-            else:
-                print(f"Invalid format data {data['_id']}")
-
-def tier_sort_key(tier_value):
-    if isinstance(tier_value, str):
-        return ord(tier_value.upper()[0])
-    return 999
-
-exclude_sources = ["forum", "blog", "review"]
+                else:
+                    print(f"Invalid format data {data['_id']}")
     
-for source, projects_data in source_summary.items():
-    if source in exclude_sources:
-        continue
-    print(source)
-    for proj in sorted(
-        projects_data,
-        key=lambda x: (x["last_date"])
-    ):
-        print(f"- [{proj['tier']}] {proj['name']} ({proj['id']}) - {proj['last_date']} - {proj.get('id_origin', '-')}")
+    # def tier_sort_key(tier_value):
+        # if isinstance(tier_value, str):
+            # return ord(tier_value.upper()[0])
+        # return 999
+    
+    exclude_sources = ["forum", "blog", "review"]
+        
+    for source, projects_data in source_summary.items():
+        if source in exclude_sources:
+            continue
+        print(source)
+        for proj in sorted(
+            projects_data,
+            key=lambda x: (x["last_date"])
+        ):
+            print(f"- [{proj['tier']}] {proj['name']} ({proj['id']}) - {proj['last_date']} - {proj.get('id_origin', '-')}")
+        print()
+    
+    print("=== PRIORITAS PROJECT ===")
+    project_delay_map = {}
+    for source, projects_data in source_summary.items():
+        if source in exclude_sources:
+            continue
+        for proj in projects_data:
+            norm_name = normalize_name(proj["name"])
+            if norm_name not in project_delay_map:
+                project_delay_map[norm_name] = []
+            project_delay_map[norm_name].append({
+                "source": source,
+                "last_date": proj["last_date"]
+            })
+    
+    for pname in PROJECT_PRIORITY_LIST:
+        nkey = normalize_name(pname)
+        if nkey in project_delay_map:
+            print(f"\n {pname}")
+            for s in sorted(project_delay_map[nkey], key=lambda x: x["last_date"]):
+                print(f" - {s['source']} - {s['last_date'].strftime('%Y-%m-%d %H:%M:%S')}")
     print()
+    
+    for source, projects_data in source_summary.items():
+        if source in exclude_sources:
+            continue
+        for proj in projects_data:
+            if proj["name"] in PROJECT_PRIORITY_LIST:
+                priority_counts[source] = priority_counts.get(source, 0) + 1
+    
+    
+    print("=== TOTAL DATA TIDAK MASUK ===")
+    if start_date and end_date:
+        print(f"== Start {start_date} - End {end_date} == ")
+    elif start_date:
+        print(f"Start {start_date}")
+    elif end_date:
+        print(f"End {end_date}")
+    else:
+        print("satu hari")   
+    for source, total in source_counts.items():
+        if source in exclude_sources:
+            continue
+        priority_total = priority_counts.get(source, 0)
+        print(f"{source} ({total} total, {priority_total} prioritas)")
+    print("-" * 100)
 
-def normalize_name(name: str) -> str:
-    return re.sub(r"[^a-z0-9]", "", name.lower())
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--start_date", type=str, help="Start date formatnya YYYY-MM-DD")
+    parser.add_argument("--end_date", type=str, help="End date formatnya YYYY-MM-DD")
 
-print("=== PRIORITAS PROJECT ===")
-project_delay_map = {}
-for source, projects_data in source_summary.items():
-    if source in exclude_sources:
-        continue
-    for proj in projects_data:
-        norm_name = normalize_name(proj["name"])
-        if norm_name not in project_delay_map:
-            project_delay_map[norm_name] = []
-        project_delay_map[norm_name].append({
-            "source": source,
-            "last_date": proj["last_date"]
-        })
+    args = parser.parse_args()
 
-for pname in PROJECT_PRIORITY_LIST:
-    nkey = normalize_name(pname)
-    if nkey in project_delay_map:
-        print(f"\n {pname}")
-        for s in sorted(project_delay_map[nkey], key=lambda x: x["last_date"]):
-            print(f" - {s['source']} - {s['last_date'].strftime('%Y-%m-%d %H:%M:%S')}")
-print()
+    start_date = datetime.strptime(args.start_date, "%Y-%m-%d %H:%M:%S") if args.start_date else datetime.combine(date.today(), datetime.min.time())
+    end_date = datetime.strptime(args.end_date, "%Y-%m-%d %H:%M:%S") if args.end_date else datetime.combine(date.today(), datetime.max.time())
 
-for source, projects_data in source_summary.items():
-    if source in exclude_sources:
-        continue
-    for proj in projects_data:
-        if proj["name"] in PROJECT_PRIORITY_LIST:
-            priority_counts[source] = priority_counts.get(source, 0) + 1
-
-
-print("=== TOTAL PER SOURCE ===")   
-for source, total in source_counts.items():
-    if source in exclude_sources:
-        continue
-    priority_total = priority_counts.get(source, 0)
-    print(f"{source} ({total} total, {priority_total} prioritas)")
-print("-" * 100)
+    start_script(start_date, end_date)
