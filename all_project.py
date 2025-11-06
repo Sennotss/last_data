@@ -43,7 +43,7 @@ def get_latest_data_grouped_by_source(id_project):
         {
             "$group": {
                 "_id": "$source",
-                "last_date": {"$max": "$date"},
+                "last_date": {"$first": "$date"},
                 "id_origin": {"$first": "$id_origin"}
             }
         },
@@ -61,7 +61,7 @@ for idx, project in enumerate(projects, start=1):
     latest_data = get_latest_data_grouped_by_source(project_id)
     data_by_source = {item["_id"]: item for item in latest_data}
 
-    print(f"\n[{idx:03}] 📁 {project_name} (tier {tier})")
+    print(f"\n[{idx:03}]  {project_name} (tier {tier})")
 
     if not latest_data:
         print("  ⚠️ Tidak ada data bulan ini")

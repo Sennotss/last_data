@@ -1,2 +1,4 @@
 mismatch_log.txt
 .env
+script_etl_instagram.py
+script_etl_twitter.py

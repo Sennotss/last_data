@@ -26,10 +26,7 @@ if now.day == 1:
     first_of_month = date(prev_month_last_day.year, prev_month_last_day.month, 1)
     print(f"[DEBUG] Hari ini tanggal 1 → ambil data dari bulan sebelumnya: {first_of_month.strftime('%Y-%m-%d')}")
 
-first_of_month_datetime = datetime.combine(first_of_month, datetime.min.time())
-
-
-def get_latest_data_grouped_by_source(id_project, start_date=None, end_date=None):
+def get_latest_data_grouped_by_source(id_project, start_date, end_date):
     pipeline = [
         {
             "$match": {
@@ -43,7 +40,7 @@ def get_latest_data_grouped_by_source(id_project, start_date=None, end_date=None
     return list(db.streams.aggregate(pipeline))
 
 def normalize_name(name: str) -> str:
-        return re.sub(r"[^a-z0-9]", "", name.lower())
+    return re.sub(r"[^a-z0-9]", "", name.lower())
 
 def start_script(start_date, end_date):
 
@@ -56,8 +53,6 @@ def start_script(start_date, end_date):
         format="%(asctime)s [%(levelname)s] %(message)s",
         filemode="a"
     )
-    
-    now = datetime.now()
     
     projects = list(db.projects.find({"status": {"$nin": [0, 4]}}).sort("tier", 1))
     source_summary = {}
