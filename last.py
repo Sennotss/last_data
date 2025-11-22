@@ -111,7 +111,7 @@ def start_script(start_date, end_date):
                         "priority": get_project_priority(project["name"])
                     })
 
-                    source_counts[source] = source_counts.get(source, 0) + 1
+                    source_counts[source] = source_counts.get(source, 0) + 1    
                 else:
                     print(f"Invalid format data {data['_id']}")
     
