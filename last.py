@@ -19,12 +19,15 @@ db = client[MONGO_DBNAME]
 
 now = datetime.now()
 today = now.date()
-first_of_month = date(now.year, now.month, 1)
+first_of_month_current = date(now.year, now.month, 1)
+
+if now.month == 1:
+    first_of_month_prev = date(now.year - 1, 12, 1)
+else:
+    first_of_month_prev = date(now.year, now.month - 1, 1)
+
+first_of_month = first_of_month_prev
 first_of_month_datetime = datetime.combine(first_of_month, datetime.min.time())
-if now.day == 1:
-    prev_month_last_day = first_of_month - timedelta(days=1)
-    first_of_month = date(prev_month_last_day.year, prev_month_last_day.month, 1)
-    print(f"[DEBUG] Hari ini tanggal 1 → ambil data dari bulan sebelumnya: {first_of_month.strftime('%Y-%m-%d')}")
 
 def get_latest_data_grouped_by_source(id_project, start_date, end_date):
     pipeline = [
