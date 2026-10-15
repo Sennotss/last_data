@@ -2,11 +2,14 @@ import os
 import re
 import logging
 import argparse
+import io
+from contextlib import redirect_stdout
 from datetime import date, datetime, timedelta
 from dotenv import load_dotenv
 import pymongo as mongo
 from helper.source_types import SOURCE_TYPES
 from helper.project_priority import PROJECT_PRIORITY_LIST, get_project_priority
+from helper.telegram import send_telegram, send_telegram_file
 
 
 load_dotenv()
@@ -192,4 +195,15 @@ if __name__ == "__main__":
     start_date = datetime.strptime(args.start_date, "%Y-%m-%d %H:%M:%S") if args.start_date else datetime.combine(date.today(), datetime.min.time())
     end_date = datetime.strptime(args.end_date, "%Y-%m-%d %H:%M:%S") if args.end_date else datetime.combine(date.today(), datetime.max.time())
 
-    start_script(start_date, end_date)
+    output = io.StringIO()
+    with redirect_stdout(output):
+        start_script(start_date, end_date)
+
+    result = output.getvalue()
+    print(result)
+
+    # Ringkasan dikirim sebagai pesan, detail di atasnya dikirim sebagai file txt
+    marker = "=== TOTAL DATA TIDAK MASUK ==="
+    detail, _, summary = result.partition(marker)
+    send_telegram(marker + summary)
+    send_telegram_file(f"last_data_{now.strftime('%Y%m%d_%H%M')}.txt", detail.strip() + "\n")
