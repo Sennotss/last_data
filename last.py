@@ -94,7 +94,7 @@ def start_script(start_date, end_date):
             
                     if mismatch:
                         log_msg = (
-                            f"⚠️ MISMATCH: Project '{project['name']}' "
+                            f"MISMATCH: Project '{project['name']}' "
                             f"({project_id}) display_type={display_type}, "
                             f"tapi source='{source}' bertipe {expected_display_type} | "
                             f"Last date: {data['last_date']}"
